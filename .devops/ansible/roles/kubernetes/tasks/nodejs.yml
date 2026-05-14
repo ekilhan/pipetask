@@ -1,0 +1,84 @@
+---
+# Node.js deployment tasks
+
+- name: Deploy Node.js backend
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: nodejs
+      namespace: {{ namespace }}
+      labels:
+        app: nodejs
+    spec:
+      replicas: 2
+      selector:
+        matchLabels:
+          app: nodejs
+      template:
+        metadata:
+          labels:
+            app: nodejs
+        spec:
+          imagePullSecrets:
+            - name: regcred
+          containers:
+          - name: nodejs
+            image: {{ nodejs_image }}
+            ports:
+            - containerPort: {{ nodejs_port }}
+            env:
+            - name: SERVER_PORT
+              value: "{{ nodejs_port }}"
+            - name: DB_HOST
+              value: "postgresql"
+            - name: DB_PORT
+              value: "{{ postgresql_port }}"
+            - name: DB_USER
+              value: "postgres"
+            - name: DB_NAME
+              value: "tododb"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: postgres-password
+    EOF
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Create Node.js service
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: nodejs
+      namespace: {{ namespace }}
+      labels:
+        app: nodejs
+    spec:
+      selector:
+        app: nodejs
+      ports:
+      - port: {{ nodejs_port }}
+        targetPort: {{ nodejs_port }}
+        nodePort: 30002
+      type: NodePort
+    EOF
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Wait for Node.js deployment
+  shell: |
+    kubectl wait --for=condition=available deployment/nodejs -n {{ namespace }} --timeout=300s
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  retries: 3
+  delay: 10
+  register: result
+  until: result.rc == 0

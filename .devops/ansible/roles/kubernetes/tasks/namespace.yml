@@ -1,0 +1,17 @@
+---
+# Namespace management tasks
+
+- name: Create namespace
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: "{{ namespace }}"
+      labels:
+        name: "{{ app_name }}"
+        environment: "{{ app_environment }}"
+    EOF
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"

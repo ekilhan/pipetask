@@ -1,0 +1,26 @@
+.list-header {
+  background-color: #468196;
+}
+
+.header-text {
+  color: #1f1d88;
+}
+
+.pipetask-logo {
+  font-size: 64px;
+  margin-top: 25px;
+}
+
+.pipetask-title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #1f1d88;
+  letter-spacing: 2px;
+}
+
+.pipetask-subtitle {
+  font-size: 0.95rem;
+  color: #555;
+  margin-top: 8px;
+  font-style: italic;
+}

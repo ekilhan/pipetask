@@ -1,0 +1,28 @@
+---
+# Kubernetes cluster variables
+kubeconfig_path: /home/ubuntu/.kube/config
+namespace: pipetask
+manifest_dir: /tmp/k8s-manifests
+
+# Application variables
+app_name: pipetask
+app_environment: dev
+
+# Docker registry
+ecr_registry: "{{ ecr_registry }}"
+aws_region: "{{ aws_region }}"
+
+# Database
+db_password: "{{ db_password }}"
+db_name: todo_app
+db_user: postgres
+
+# Application images
+postgresql_image: "{{ ecr_registry }}/project-repo/pipetask:postgre"
+nodejs_image: "{{ ecr_registry }}/project-repo/pipetask:nodejs"
+react_image: "{{ ecr_registry }}/project-repo/pipetask:react"
+
+# Ports
+postgresql_port: 5432
+nodejs_port: 5000
+react_port: 3000

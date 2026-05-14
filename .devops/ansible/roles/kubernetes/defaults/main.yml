@@ -1,0 +1,37 @@
+---
+# Default variables for Kubernetes role
+
+# Application settings
+app_name: pipetask
+app_environment: dev
+namespace: "{{ app_name }}"
+
+# Kubernetes settings
+kubeconfig_path: /home/ubuntu/.kube/config
+manifest_dir: /tmp/k8s-manifests
+
+# ECR Image settings (ecr_registry pipeline'dan gelecek)
+postgresql_image: "{{ ecr_registry }}/project-repo/pipetask:postgre"
+nodejs_image: "{{ ecr_registry }}/project-repo/pipetask:nodejs"
+react_image: "{{ ecr_registry }}/project-repo/pipetask:react"
+
+# Database settings
+db_name: tododb
+db_user: postgres
+db_port: 5432
+
+# Application ports
+postgresql_port: 5432
+nodejs_port: 5000
+react_port: 3000
+
+# Deployment settings
+postgresql_replicas: 1
+nodejs_replicas: 2
+react_replicas: 2
+
+# Health check settings
+initial_delay_seconds: 30
+period_seconds: 10
+readiness_initial_delay: 5
+readiness_period: 5

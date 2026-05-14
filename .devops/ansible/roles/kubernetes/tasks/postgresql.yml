@@ -1,0 +1,83 @@
+---
+# PostgreSQL deployment tasks
+
+- name: Deploy PostgreSQL database
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: postgresql
+      namespace: {{ namespace }}
+      labels:
+        app: postgresql
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: postgresql
+      template:
+        metadata:
+          labels:
+            app: postgresql
+        spec:
+          imagePullSecrets:
+            - name: regcred
+          containers:
+          - name: postgresql
+            image: {{ postgresql_image }}
+            ports:
+            - containerPort: {{ postgresql_port }}
+            env:
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_DB
+              value: "tododb"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: postgres-password
+            volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+          volumes:
+          - name: db-data
+            emptyDir: {}
+    EOF
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Create PostgreSQL service
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: postgresql
+      namespace: {{ namespace }}
+      labels:
+        app: postgresql
+    spec:
+      selector:
+        app: postgresql
+      ports:
+      - port: {{ postgresql_port }}
+        targetPort: {{ postgresql_port }}
+      type: ClusterIP
+    EOF
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Wait for PostgreSQL deployment
+  shell: |
+    kubectl wait --for=condition=available deployment/postgresql -n {{ namespace }} --timeout=300s
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  retries: 3
+  delay: 10
+  register: result
+  until: result.rc == 0

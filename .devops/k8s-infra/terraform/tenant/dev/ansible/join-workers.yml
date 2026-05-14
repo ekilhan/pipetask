@@ -1,0 +1,30 @@
+---
+- name: Get kubeadm join command from master
+  hosts: masters
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Wait for master to be ready
+      pause:
+        seconds: 60
+
+    - name: Get join command
+      command: kubeadm token create --print-join-command
+      register: join_cmd
+      changed_when: false
+
+    - name: Set join command fact
+      set_fact:
+        kubeadm_join_cmd: "{{ join_cmd.stdout }}"
+
+- name: Join workers to cluster
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Wait before joining
+      pause:
+        seconds: 20
+      when: hostvars[groups['masters'][0]]['kubeadm_join_cmd'] is defined
+
+    - name: Run join command on workers
+      command: "{{ hostvars[groups['masters'][0]]['kubeadm_join_cmd'] }} --ignore-preflight-errors=all"

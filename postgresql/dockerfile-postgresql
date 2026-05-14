@@ -1,0 +1,13 @@
+# Use specific version for consistency
+FROM postgres:15-alpine
+
+# Copy initialization script
+# This will run automatically on first container start
+COPY ./postgresql/init.sql /docker-entrypoint-initdb.d/
+
+# Expose PostgreSQL port
+EXPOSE 5432
+
+# Healthcheck for K8s readiness/liveness probes
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+  CMD pg_isready -U postgres || exit 1

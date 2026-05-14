@@ -1,0 +1,23 @@
+# Use Node 20 for compatibility with latest packages
+FROM node:20-alpine
+
+# Fix for OpenSSL 3.0 compatibility with older webpack
+ENV NODE_OPTIONS=--openssl-legacy-provider
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files first (better layer caching)
+COPY ./react/client/package*.json ./
+
+# Install dependencies
+RUN yarn install --frozen-lockfile
+
+# Copy application code
+COPY ./react/client/ .
+
+# Expose React development server port
+EXPOSE 3000
+
+# Start development server
+CMD ["yarn", "run", "start"]

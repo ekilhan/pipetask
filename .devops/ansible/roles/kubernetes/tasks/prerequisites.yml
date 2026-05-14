@@ -1,0 +1,23 @@
+---
+# Prerequisites tasks
+
+- block:
+  - name: Install required packages
+    apt:
+      name:
+        - gettext-base
+        - curl
+        - jq
+      state: present
+      update_cache: true
+    become: true
+
+  - name: Create manifest directory
+    file:
+      path: "{{ manifest_dir }}"
+      state: directory
+      mode: '0755'
+  rescue:
+    - name: Handle error in prerequisites
+      fail:
+        msg: "An error occurred during prerequisites setup. Check the logs above for details."

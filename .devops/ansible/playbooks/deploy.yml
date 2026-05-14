@@ -1,0 +1,42 @@
+---
+# Main deployment playbook for Todo App
+
+- name: Deploy Todo Application to Kubernetes
+  hosts: masters
+  gather_facts: no
+  become: yes
+
+  vars:
+    # These variables will be passed from Jenkins
+    ecr_registry: "{{ ecr_registry | default('') }}"
+    aws_region: "{{ aws_region | default('us-east-1') }}"
+    db_password: "{{ db_password | default('') }}"
+    master_public_ip: "{{ master_public_ip | default('') }}"
+    worker_public_ip: "{{ worker_public_ip | default('') }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      assert:
+        that:
+          - ecr_registry != ''
+          - aws_region != ''
+          - db_password != ''
+          - master_public_ip != ''
+        fail_msg: "Required variables are not set. Please check Jenkins parameters."
+
+    - name: Display deployment information
+      debug:
+        msg: |
+          Deploying Todo App with:
+          - ECR Registry: {{ ecr_registry }}
+          - AWS Region: {{ aws_region }}
+          - Master IP: {{ master_public_ip }}
+          - Worker IP: {{ worker_public_ip }}
+
+  roles:
+    - kubernetes
+
+  post_tasks:
+    - name: Deployment completed successfully
+      debug:
+        msg: "Todo Application has been deployed successfully to Kubernetes cluster!"

@@ -1,0 +1,68 @@
+---
+# React deployment tasks
+
+- name: Deploy React frontend
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: react
+      namespace: {{ namespace }}
+      labels:
+        app: react
+    spec:
+      replicas: 2
+      selector:
+        matchLabels:
+          app: react
+      template:
+        metadata:
+          labels:
+            app: react
+        spec:
+          imagePullSecrets:
+            - name: regcred
+          containers:
+          - name: react
+            image: {{ react_image }}
+            ports:
+            - containerPort: {{ react_port }}
+    EOF
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Create React service
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: react
+      namespace: {{ namespace }}
+      labels:
+        app: react
+    spec:
+      selector:
+        app: react
+      ports:
+      - port: {{ react_port }}
+        targetPort: {{ react_port }}
+        nodePort: 30001
+      type: NodePort
+    EOF
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Wait for React deployment
+  shell: |
+    kubectl wait --for=condition=available deployment/react -n {{ namespace }} --timeout=300s
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  retries: 3
+  delay: 10
+  register: result
+  until: result.rc == 0

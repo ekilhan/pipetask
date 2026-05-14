@@ -1,0 +1,7 @@
+---
+collections:
+  - name: kubernetes.core
+    version: ">=2.0.0"
+
+roles: []
+  # Add any external roles here if needed

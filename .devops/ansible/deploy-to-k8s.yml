@@ -1,0 +1,130 @@
+---
+- name: Deploy Todo App to Kubernetes
+  hosts: masters
+  gather_facts: no
+  become: yes
+  vars:
+    kubeconfig_path: /home/ubuntu/.kube/config
+    manifest_dir: /tmp/k8s-manifests
+  tasks:
+    - name: Install gettext-base for envsubst
+      apt:
+        name: gettext-base
+        state: present
+        update_cache: yes
+
+    - name: Create manifest directory
+      file:
+        path: "{{ manifest_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create namespace
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl create namespace pipetask --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Create regcred secret for ECR
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl delete secret regcred -n pipetask --ignore-not-found
+        kubectl create secret docker-registry regcred \
+          --docker-server={{ ecr_registry }} \
+          --docker-username=AWS \
+          --docker-password=$(aws ecr get-login-password --region {{ aws_region }}) \
+          -n pipetask
+
+    - name: Create database password secret
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl delete secret db-credentials -n pipetask --ignore-not-found
+        kubectl create secret generic db-credentials \
+          --from-literal=postgres-password='{{ db_password }}' \
+          -n pipetask
+
+    - name: Copy K8s manifests to master
+      copy:
+        src: "{{ item }}"
+        dest: "{{ manifest_dir }}/"
+        mode: '0644'
+      loop:
+        - ../k8s/namespace.yaml
+        - ../k8s/postgresql-deployment.yaml
+        - ../k8s/nodejs-deployment.yaml
+        - ../k8s/react-deployment.yaml
+
+    - name: Substitute environment variables in manifests
+      shell: |
+        export ECR_REGISTRY={{ ecr_registry }}
+        envsubst < {{ manifest_dir }}/{{ item }} > {{ manifest_dir }}/{{ item }}.processed
+      loop:
+        - postgresql-deployment.yaml
+        - nodejs-deployment.yaml
+        - react-deployment.yaml
+
+    - name: Apply namespace manifest
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl apply -f {{ manifest_dir }}/namespace.yaml
+
+    - name: Apply PostgreSQL manifest
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl apply -f {{ manifest_dir }}/postgresql-deployment.yaml.processed
+
+    - name: Wait for PostgreSQL to be ready
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl rollout status deployment/postgresql -n pipetask --timeout=300s
+
+    - name: Apply Node.js manifest
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl apply -f {{ manifest_dir }}/nodejs-deployment.yaml.processed
+
+    - name: Wait for Node.js to be ready
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl rollout status deployment/nodejs -n pipetask --timeout=300s
+
+    - name: Apply React manifest
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl apply -f {{ manifest_dir }}/react-deployment.yaml.processed
+
+    - name: Wait for React to be ready
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl rollout status deployment/react -n pipetask --timeout=300s
+
+    - name: Get all pods in pipetask namespace
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl get pods -n pipetask
+      register: pod_status
+
+    - name: Display pod status
+      debug:
+        var: pod_status.stdout_lines
+
+    - name: Get all services in pipetask namespace
+      become_user: ubuntu
+      shell: |
+        export KUBECONFIG={{ kubeconfig_path }}
+        kubectl get svc -n pipetask
+      register: service_status
+
+    - name: Display service status
+      debug:
+        var: service_status.stdout_lines
